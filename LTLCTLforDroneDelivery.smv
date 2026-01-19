@@ -1,0 +1,63 @@
+MODULE main
+
+VAR
+  state : {idle, takeoff, fly, hover, delivery, landing};
+  payload : {yes, no};
+
+ASSIGN
+  init(state) := idle;
+  init(payload) := yes;
+
+  next(state) := case
+    state = idle : takeoff;
+    state = takeoff : fly;
+    state = fly : {fly, hover};
+    
+    state = hover & payload = yes : {delivery, fly, landing, hover};
+    state = hover & payload = no  : {fly, landing, hover};
+    
+    state = delivery : hover;
+    state = landing : idle;
+    TRUE : state;
+  esac;
+
+  next(payload) := case
+    state = delivery : {yes, no}; 
+    state = idle : yes; 
+    TRUE : payload;
+  esac;
+
+FAIRNESS !(state = fly)
+FAIRNESS !(state = hover)
+
+-- =========================================================
+-- LTL PROPERTIES
+-- =========================================================
+
+LTLSPEC
+  G (state = fly -> (state = fly U state = hover));
+  
+LTLSPEC
+  G (state = delivery -> X state = hover);
+
+LTLSPEC
+  G (state = takeoff -> X state = fly);
+
+LTLSPEC
+  (payload = yes) U (state = delivery);
+
+-- =========================================================
+-- CTL PROPERTIES
+-- =========================================================
+
+CTLSPEC
+  AG (state in {takeoff, fly, hover, delivery} -> EF (state = landing | state = idle));
+
+CTLSPEC
+  AG (state = hover -> EF state = fly);
+
+CTLSPEC
+  AG (state = landing -> EF state = takeoff);
+
+CTLSPEC
+  AG ((state = hover & payload = yes) -> AF state = delivery);
